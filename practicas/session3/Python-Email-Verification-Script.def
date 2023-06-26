@@ -1,0 +1,16 @@
+bootstrap: docker
+from: ubuntu:20.04
+
+%post
+ PACKAGES=/repos
+ apt-get update && apt-get install -y vim python3 python3-pip git
+ pip3 install dnspython3
+ mkdir $PACKAGES
+ cd $PACKAGES
+ git clone https://github.com/scottbrady91/Python-Email-Verification-Script.git
+
+%environtment
+ export PACKAGES=/repos
+
+%runscript
+ python3 $PACKAGES/Python-Email-Verification-Script/VerifyEmailAddres.py
