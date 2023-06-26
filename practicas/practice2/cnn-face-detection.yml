@@ -1,0 +1,12 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:8080
+functions:
+  cnn-face-detection:
+    lang: python3-debian
+    handler: ./cnn-face-detection
+    image: modejota/cnn-face-detection:latest
+    environment:
+      PROTOTXT_FILE: /home/app/function/deploy.prototxt.txt
+      CAFFE_MODEL_FILE: /home/app/function/res10_300x300_ssd_iter_140000.caffemodel

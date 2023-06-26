@@ -1,0 +1,13 @@
+dn: uid=josealberto,dc=modejota,dc=com
+cn: josealberto
+uid: josealberto
+sn: 3
+objectClass: top
+objectClass: posixAccount
+objectClass: inetOrgPerson
+uidNumber: 1701
+gidNumber: 20
+homeDirectory: /home/modejota
+loginShell: /bin/bash
+gecos: modejota
+userPassword: {crypt}x

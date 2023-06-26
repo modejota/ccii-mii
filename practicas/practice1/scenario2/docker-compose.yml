@@ -1,0 +1,134 @@
+version: "3"
+
+volumes:
+  files:
+    driver: local
+  mysql:
+    driver: local
+  mysql-replica:
+    driver: local
+  redis:
+    driver: local
+  ldap-data:
+    driver: local
+  ldap-config:
+    driver: local
+
+services:
+
+  haproxy:
+    image: haproxy:${HAPROXY_VERSION}
+    container_name: owncloud_haproxy
+    ports:
+      - "${HTTP_PORT}:${HTTP_PORT}"
+      - "${HAPROXY_STATS_PORT}:${HAPROXY_STATS_PORT}"
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+    depends_on:
+      - owncloud
+
+  owncloud:
+    image: owncloud/server:${OWNCLOUD_VERSION}
+    restart: always
+    depends_on:
+      - mariadb
+      - redis
+      - ldap
+    environment:
+      - OWNCLOUD_DOMAIN=${OWNCLOUD_DOMAIN}
+      - OWNCLOUD_TRUSTED_DOMAINS=${OWNCLOUD_TRUSTED_DOMAINS}
+      - OWNCLOUD_DB_TYPE=mysql
+      - OWNCLOUD_DB_NAME=owncloud
+      - OWNCLOUD_DB_USERNAME=${OWNCLOUD_DB_USERNAME}
+      - OWNCLOUD_DB_PASSWORD=${OWNCLOUD_DB_PASSWORD}
+      - OWNCLOUD_DB_HOST=mariadb
+      - OWNCLOUD_ADMIN_USERNAME=${ADMIN_USERNAME}
+      - OWNCLOUD_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - OWNCLOUD_MYSQL_UTF8MB4=true
+      - OWNCLOUD_REDIS_ENABLED=true
+      - OWNCLOUD_REDIS_HOST=redis
+    healthcheck:
+      test: ["CMD", "/usr/bin/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - files:/mnt/data
+    deploy:
+      replicas: 2
+
+  mariadb:
+    image: mariadb:${MARIADB_VERSION}
+    container_name: owncloud_mariadb
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    command: ["--max-allowed-packet=128M", "--innodb-log-file-size=64M"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "--password=${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mysql:/var/lib/mysql
+      - ./mariadb-replication/conf/master:/etc/mysql/conf.d/
+      - ./mariadb-replication/init/master:/docker-entrypoint-initdb.d
+
+  mariadb-replica:
+    image: mariadb:${MARIADB_VERSION}
+    container_name: owncloud_mariadb_replica
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    command: ["--max-allowed-packet=128M", "--innodb-log-file-size=64M"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-u", "root", "--password=${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mysql-replica:/var/lib/mysql
+      - ./mariadb-replication/conf/replica:/etc/mysql/conf.d/
+      - ./mariadb-replication/init/replica:/docker-entrypoint-initdb.d
+    depends_on:
+      - mariadb
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    container_name: owncloud_redis
+    restart: always
+    command: ["--databases", "1"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis:/data
+
+  ldap:
+    image: osixia/openldap
+    container_name: owncloud_ldap_server
+    restart: always
+    command: "--copy-service"
+    environment:
+      LDAP_TLS_VERIFY_CLIENT: never
+      LDAP_DOMAIN: ${LDAP_DOMAIN}
+      LDAP_BASE_DN: ${LDAP_BASE_DN}
+      LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD}
+      LDAP_CONFIG_PASSWORD: ${LDAP_CONFIG_PASSWORD}
+      LDAP_READONLY_USER: true
+      LDAP_READONLY_USER_USERNAME: readonly
+      LDAP_READONLY_USER_PASSWORD: readonly-password
+    volumes:
+      - ldap-data:/var/lib/sldap
+      - ldap-config:/etc/ldap/slapd.d
+      - ../ldap/ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom
+    ports:
+      - "${LDAP_NON_ENCRYPT_PORT}:${LDAP_NON_ENCRYPT_PORT}"

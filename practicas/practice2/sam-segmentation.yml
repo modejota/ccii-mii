@@ -1,0 +1,13 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:8080
+functions:
+  sam-segmentation:
+    lang: python3-debian
+    handler: ./sam-segmentation
+    image: modejota/sam-segmentation:latest
+    environment:
+      read_timeout: 600
+      write_timeout: 600
+      MODEL_FILE: /home/app/function/sam_vit_l_0b3195.pth

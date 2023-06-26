@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+
+  node-exporter:
+    container_name: node1-exporter
+    image: prom/node-exporter
+    ports:
+      - 9100:9100
+
+  prometheus:
+    container_name: node-prom
+    image: prom/prometheus:v2.30.3
+    ports:
+      - 9090:9090
+    volumes:
+      - .:/etc/prometheus
+      - prometheus-data:/prometheus
+    command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
+
+  grafana:
+    container_name: node-grafana
+    image: grafana/grafana-oss
+    ports:
+      - 3000:3000
+
+volumes:
+  prometheus-data:
